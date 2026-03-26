@@ -232,6 +232,7 @@ class PokemonBattleApp:
 
     def _do_analysis(self, api_key, my_party, opp_party):
         try:
+            import time
             import google.generativeai as genai
 
             genai.configure(api_key=api_key)
@@ -272,9 +273,29 @@ class PokemonBattleApp:
 各ポケモンのタイプ・特性・代表的な持ち物・技構成・メタにおける役割を踏まえて分析してください。
 """
 
-            response = model.generate_content(prompt)
-            result = response.text
-            self.root.after(0, self._show_result, result)
+            # リトライ（最大3回、指数バックオフ）
+            last_err = None
+            for attempt in range(3):
+                try:
+                    response = model.generate_content(prompt)
+                    result = response.text
+                    self.root.after(0, self._show_result, result)
+                    return
+                except Exception as e:
+                    last_err = e
+                    err_str = str(e)
+                    # 429 レート制限なら待機してリトライ
+                    if "429" in err_str:
+                        wait = 15 * (2 ** attempt)  # 15s, 30s, 60s
+                        self.root.after(
+                            0,
+                            self._set_status,
+                            f"APIレート制限中... {wait}秒後に再試行します（{attempt+1}/3）",
+                        )
+                        time.sleep(wait)
+                    else:
+                        raise
+            raise last_err
 
         except ImportError:
             self.root.after(
@@ -286,6 +307,10 @@ class PokemonBattleApp:
             )
         except Exception as e:
             self.root.after(0, self._show_result, f"エラーが発生しました:\n{e}")
+
+    def _set_status(self, text):
+        self.result_text.delete("1.0", tk.END)
+        self.result_text.insert(tk.END, text)
 
     def _show_result(self, text):
         self.result_text.delete("1.0", tk.END)
