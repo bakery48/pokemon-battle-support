@@ -235,7 +235,7 @@ class PokemonBattleApp:
             import google.generativeai as genai
 
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-1.5-flash")
+            model = genai.GenerativeModel("gemini-2.0-flash")
 
             my_str = "、".join(my_party)
             opp_str = "、".join(opp_party)
